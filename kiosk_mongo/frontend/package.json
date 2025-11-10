@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prebuild": "chmod +x node_modules/.bin/react-scripts",
     "start": "react-scripts start",
     "build": "react-scripts build"
   },

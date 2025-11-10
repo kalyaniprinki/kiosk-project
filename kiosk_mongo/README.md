@@ -30,3 +30,7 @@ npm start
 ```
 
 Backend runs on port 4000, frontend on 3000.
+
+git add .
+git commit -m "Updated feature xyz"
+git push
