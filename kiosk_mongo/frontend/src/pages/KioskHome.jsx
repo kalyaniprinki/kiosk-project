@@ -24,7 +24,7 @@ export default function KioskHome() {
 
     return () => socket.disconnect();
   }, []);
-const frontendURL = process.env.REACT_APP_FRONTEND_URL || "http://localhost:3000";
+const frontendURL = process.env.REACT_APP_FRONTEND_URL ;
   return (
     <div style={styles.container}>
       <div style={styles.card}>
