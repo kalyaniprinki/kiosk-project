@@ -32,10 +32,12 @@ export default function UserUpload() {
     formData.append("kioskId", kioskId);
 
     try {
-      const res = await fetch("http://localhost:4000/api/upload", {
+      const API_BASE_URL = process.env.REACT_APP_API_URL;
+        const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: "POST",
         body: formData,
-      });
+        });
+
 
       const data = await res.json();
       if (data.success) {
