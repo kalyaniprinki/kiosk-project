@@ -8,7 +8,10 @@ export default function KioskHome() {
   const [status, setStatus] = useState("Waiting for user to scan QR...");
 
   useEffect(() => {
-    const socket = io("http://localhost:4000");
+    const socket = io(process.env.REACT_APP_SOCKET_URL || "http://localhost:4000", {
+    transports: ["websocket"],
+    });
+
 
     // join the kiosk room
     socket.emit("joinKiosk", kioskId);

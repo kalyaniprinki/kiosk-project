@@ -14,7 +14,13 @@ export default function UserUpload() {
     const id = params.get("kiosk");
     if (id) {
       setKioskId(id);
-      const socket = io("http://localhost:4000");
+      // Use Render backend in production, localhost in development
+      const socket = io(
+        process.env.REACT_APP_SOCKET_URL || "http://localhost:4000",
+        {
+          transports: ["websocket"], // ensures fast connection
+        }
+      );
       socket.emit("userConnected", id);
       return () => socket.disconnect();
     }
@@ -54,7 +60,8 @@ export default function UserUpload() {
 
   const handlePrint = async () => {
     try {
-      const res = await fetch("http://localhost:4000/api/print", {
+      const res = await fetch(
+      `${process.env.REACT_APP_API_URL || "http://localhost:4000"}/api/print`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kioskId, color, copies }),

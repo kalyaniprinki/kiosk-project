@@ -16,7 +16,9 @@ export default function Register({ onBack }) {
             password: form.password,
             location: form.location,
           };
-    const res = await fetch('http://localhost:4000/api/register', {
+    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+
+    const res = await fetch(`${API_BASE}/api/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

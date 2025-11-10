@@ -10,7 +10,9 @@ export default function Login({ type, onBack, onSuccess }) {
       type === 'user'
         ? { type: 'user', username: form.username, password: form.password }
         : { type: 'kiosk', kiosk_name: form.kiosk_name, password: form.password };
-    const res = await fetch('http://localhost:4000/api/login', {
+
+        const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+    const res = await fetch(`${API_BASE}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
