@@ -24,7 +24,7 @@ export default function KioskHome() {
 
     return () => socket.disconnect();
   }, []);
-
+const frontendURL = process.env.REACT_APP_FRONTEND_URL || "http://localhost:3000";
   return (
     <div style={styles.container}>
       <div style={styles.card}>
@@ -34,8 +34,9 @@ export default function KioskHome() {
         {/* Show QR only when not connected */}
         {!connected && (
           <>
+          
             <QRCodeCanvas
-              value={`http://localhost:3000/connect?kiosk=${kioskId}`}
+              value={`${frontendURL}/connect?kiosk=${kioskId}`}
               size={220}
               includeMargin={true}
             />
