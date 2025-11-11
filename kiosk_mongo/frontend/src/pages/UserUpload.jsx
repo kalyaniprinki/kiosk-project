@@ -8,7 +8,7 @@ export default function UserUpload() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [color, setColor] = useState("black_white");
   const [copies, setCopies] = useState(1);
-  const API_BASE_URL = process.env.REACT_APP_API_URL;// || "http://localhost:4000";
+  const API_BASE_URL = process.env.REACT_APP_API_URL || "https://kiosk-project-pm6r.onrender.com";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -41,13 +41,16 @@ export default function UserUpload() {
   try {
     const API_BASE_URL = process.env.REACT_APP_API_URL;
     if (!API_BASE_URL) throw new Error("API_BASE_URL is undefined");
-
+    console.log("Uploading to:", `${API_BASE_URL}/api/upload`);
     const res = await fetch(`${API_BASE_URL}/api/upload`, {
       method: "POST",
       body: formData,
     });
 
+    console.log("Response status:", res.status);
     const data = await res.json();
+    console.log("Response data:", data);
+    
     if (data.success) {
       setUploadSuccess(true);
       setMsg("✅ File uploaded successfully!");

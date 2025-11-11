@@ -142,21 +142,22 @@ app.post('/api/login', async (req, res) => {
 // 🔹 Upload File API (Cloudinary)
 // =============================
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  console.log('Incoming upload:', req.file);
+  console.log('Request body:', req.body);
 
-    // Cloudinary automatically provides a secure URL for the uploaded file
-    res.json({
-      success: true,
-      message: 'File uploaded successfully to Cloudinary',
-      fileUrl: req.file.path, // this is the Cloudinary file URL
-      public_id: req.file.filename,
-    });
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const fileUrl = req.file.path; // Cloudinary path
+    res.json({ success: true, fileUrl });
   } catch (err) {
-    console.error(err);
+    console.error('Upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // =============================
 // 🔹 Start Server
