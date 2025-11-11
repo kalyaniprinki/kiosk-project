@@ -142,21 +142,22 @@ app.post('/api/login', async (req, res) => {
 // 🔹 Upload File API (Cloudinary)
 // =============================
 app.post('/api/upload', upload.single('file'), async (req, res) => {
-  console.log('Incoming upload:', req.file);
-  console.log('Request body:', req.body);
+  console.log("Incoming upload body:", JSON.stringify(req.body, null, 2));
+  console.log("Incoming file:", req.file);
 
   if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
+    return res.status(400).json({ success: false, error: "No file uploaded" });
   }
 
   try {
-    const fileUrl = req.file.path; // Cloudinary path
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
     res.json({ success: true, fileUrl });
   } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: err.message });
+    console.error("Upload error:", err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 
 // =============================
