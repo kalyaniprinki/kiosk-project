@@ -31,6 +31,8 @@ npm start
 
 Backend runs on port 4000, frontend on 3000.
 
+####these commands run with kiosk folder path
+
 git add .
 git commit -m "Updated feature xyz"
 git push

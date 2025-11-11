@@ -8,6 +8,7 @@ export default function UserUpload() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [color, setColor] = useState("black_white");
   const [copies, setCopies] = useState(1);
+  const API_BASE_URL = process.env.REACT_APP_API_URL;// || "http://localhost:4000";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -38,7 +39,7 @@ export default function UserUpload() {
     formData.append("kioskId", kioskId);
 
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL;
+      // const API_BASE_URL = process.env.REACT_APP_API_URL;
         const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: "POST",
         body: formData,
@@ -60,8 +61,7 @@ export default function UserUpload() {
 
   const handlePrint = async () => {
     try {
-      const res = await fetch(
-      `${process.env.REACT_APP_API_URL || "http://localhost:4000"}/api/print`, {
+      const res = await fetch(`${API_BASE_URL}/api/print`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kioskId, color, copies }),
