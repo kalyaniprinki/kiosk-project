@@ -6,72 +6,80 @@ export default function UserUpload() {
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [fileUrl, setFileUrl] = useState("");
   const [color, setColor] = useState("black_white");
   const [copies, setCopies] = useState(1);
-  const API_BASE_URL = process.env.REACT_APP_API_URL || "https://kiosk-project-pm6r.onrender.com";
+  const [uploading, setUploading] = useState(false);
 
+  const API_BASE_URL =
+    process.env.REACT_APP_API_URL || "http://localhost:4000";
+  const SOCKET_URL =
+    process.env.REACT_APP_SOCKET_URL || "http://localhost:4000";
+
+  // Connect to kiosk via QR
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get("kiosk");
     if (id) {
       setKioskId(id);
-      // Use Render backend in production, localhost in development
-      const socket = io(
-        process.env.REACT_APP_SOCKET_URL ,//|| "http://localhost:4000",
-        {
-          transports: ["websocket"], // ensures fast connection
-        }
-      );
+      const socket = io(SOCKET_URL, { transports: ["websocket"] });
       socket.emit("userConnected", id);
+
+      socket.on("userConnectedMessage", (msg) => console.log(msg));
+
       return () => socket.disconnect();
     }
   }, []);
 
+  // Handle file upload
   const handleUpload = async (e) => {
-  e.preventDefault();
-  if (!file || !kioskId) {
-    setMsg("⚠️ Please select a file and ensure kiosk is connected.");
-    return;
-  }
+    e.preventDefault();
 
-  const formData = new FormData();
-  formData.append("file", file);
-  formData.append("kioskId", kioskId);
-
-  try {
-    const API_BASE_URL = process.env.REACT_APP_API_URL;
-    if (!API_BASE_URL) throw new Error("API_BASE_URL is undefined");
-    console.log("Uploading to:", `${API_BASE_URL}/api/upload`);
-    const res = await fetch(`${API_BASE_URL}/api/upload`, {
-      method: "POST",
-      body: formData,
-    });
-
-    console.log("Response status:", res.status);
-    const data = await res.json();
-    console.log("Response data:", data);
-    
-    if (data.success) {
-      setUploadSuccess(true);
-      setMsg("✅ File uploaded successfully!");
-      console.log("Cloudinary URL:", data.fileUrl);
-    } else {
-      setMsg("⚠️ Failed to upload file.");
+    if (!file || !kioskId) {
+      setMsg("⚠️ Please select a file and ensure kiosk is connected.");
+      return;
     }
-  } catch (err) {
-    console.error("Upload error:", err);
-    setMsg("❌ Error connecting to server.");
-  }
-};
 
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("kioskId", kioskId);
 
+    try {
+      setUploading(true);
+      setMsg("⏳ Uploading file...");
+
+      const res = await fetch(`${API_BASE_URL}/api/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      setUploading(false);
+
+      if (data.success) {
+        setUploadSuccess(true);
+        setFileUrl(data.fileUrl); // Cloudinary URL
+        setMsg("✅ File uploaded successfully!");
+        console.log("Uploaded file URL:", data.fileUrl);
+      } else {
+        setMsg("⚠️ Failed to upload file.");
+      }
+    } catch (err) {
+      setUploading(false);
+      console.error("Upload error:", err);
+      setMsg("❌ Error connecting to server.");
+    }
+  };
+
+  // Handle print request
   const handlePrint = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/print`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kioskId, color, copies }),
+        body: JSON.stringify({ kioskId, color, copies, fileUrl }),
       });
+
       const data = await res.json();
       if (data.success) {
         setMsg("🖨️ Print command sent successfully!");
@@ -88,6 +96,7 @@ export default function UserUpload() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>📤 Upload File for Printing</h1>
+
         {kioskId ? (
           <p style={styles.subtitle}>
             Connected to Kiosk: <strong>{kioskId}</strong>
@@ -105,17 +114,17 @@ export default function UserUpload() {
               onChange={(e) => setFile(e.target.files[0])}
               style={styles.fileInput}
             />
-            <button type="submit" style={styles.button}>
-              Upload File
+            <button type="submit" style={styles.button} disabled={uploading}>
+              {uploading ? "Uploading..." : "Upload File"}
             </button>
           </form>
         )}
-
 
         {/* Options after upload */}
         {uploadSuccess && (
           <div style={styles.optionsBox}>
             <h3>🖨️ Print Settings</h3>
+
             <div style={styles.optionsRow}>
               <label>Color:</label>
               <select
@@ -143,6 +152,15 @@ export default function UserUpload() {
             <button style={styles.printButton} onClick={handlePrint}>
               Print Now
             </button>
+
+            {fileUrl && (
+              <p>
+                File URL:{" "}
+                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                  {fileUrl}
+                </a>
+              </p>
+            )}
           </div>
         )}
 
