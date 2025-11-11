@@ -20,13 +20,15 @@ const io = new Server(server, { cors: { origin: '*' } });
 // =============================
 // 🔹 Middleware Setup
 // =============================
+// CORS for Vercel frontend
 app.use(
   cors({
-    origin: ['https://kiosk-project-zeta.vercel.app'], // ✅ allow your Vercel domain
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    origin: ["https://kiosk-project-zeta.vercel.app"], // replace with actual
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
 );
+
 app.use(bodyParser.json());
 
 // =============================
@@ -63,25 +65,25 @@ io.on('connection', (socket) => {
 // =============================
 // 🔹 Cloudinary Configuration
 // =============================
-cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.CLOUD_API_KEY,
-  api_secret: process.env.CLOUD_API_SECRET,
-});
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 // =============================
 // 🔹 Multer Storage (Cloudinary)
 // =============================
+
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
-    folder: 'kiosk_uploads', // Folder in your Cloudinary account
-    allowed_formats: ['jpg', 'png', 'pdf', 'jpeg'],
-    resource_type: 'auto', // auto-detect file type
+    folder: "kiosk_uploads",
+    allowed_formats: ["jpg", "png", "pdf"],
   },
 });
-
 const upload = multer({ storage });
+
 
 // =============================
 // 🔹 API Routes
@@ -141,24 +143,28 @@ app.post('/api/login', async (req, res) => {
 // =============================
 // 🔹 Upload File API (Cloudinary)
 // =============================
-app.post('/api/upload', upload.single('file'), async (req, res) => {
-  console.log("Incoming upload body:", JSON.stringify(req.body, null, 2));
-  console.log("Incoming file:", req.file);
+app.post("/api/upload", upload.single("file"), async (req, res) => {
+  console.log("File received:", req.file);
 
   if (!req.file) {
     return res.status(400).json({ success: false, error: "No file uploaded" });
   }
 
   try {
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.json({ success: true, fileUrl });
+    res.json({ success: true, fileUrl: req.file.path });
   } catch (err) {
     console.error("Upload error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-
+// Print endpoint
+app.post("/api/print", express.json(), (req, res) => {
+  const { kioskId, color, copies, fileUrl } = req.body;
+  console.log({ kioskId, color, copies, fileUrl });
+  // Implement your actual print logic here
+  res.json({ success: true });
+});
 
 // =============================
 // 🔹 Start Server

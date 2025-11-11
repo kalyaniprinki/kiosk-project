@@ -12,9 +12,9 @@ export default function UserUpload() {
   const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL =
-    process.env.REACT_APP_API_URL || "http://localhost:4000";
+    process.env.REACT_APP_API_URL || "https://kiosk-project-pm6r.onrender.com";
   const SOCKET_URL =
-    process.env.REACT_APP_SOCKET_URL || "http://localhost:4000";
+    process.env.REACT_APP_SOCKET_URL || "https://kiosk-project-pm6r.onrender.com";
 
   // Connect to kiosk via QR
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function UserUpload() {
 
       if (data.success) {
         setUploadSuccess(true);
-        setFileUrl(data.fileUrl); // Cloudinary URL
+        setFileUrl(data.fileUrl);
         setMsg("✅ File uploaded successfully!");
         console.log("Uploaded file URL:", data.fileUrl);
       } else {
