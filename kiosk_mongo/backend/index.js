@@ -22,7 +22,7 @@ const io = new Server(server, { cors: { origin: '*' } });
 // =============================
 app.use(
   cors({
-    origin: ['https://kiosk-project-zeta.vercel.app', 'http://localhost:3000'], // ✅ allow your Vercel domain
+    origin: ['https://kiosk-project-zeta.vercel.app'], // ✅ allow your Vercel domain
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   })
