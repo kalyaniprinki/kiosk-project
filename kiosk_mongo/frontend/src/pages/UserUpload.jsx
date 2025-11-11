@@ -17,7 +17,7 @@ export default function UserUpload() {
       setKioskId(id);
       // Use Render backend in production, localhost in development
       const socket = io(
-        process.env.REACT_APP_SOCKET_URL || "http://localhost:4000",
+        process.env.REACT_APP_SOCKET_URL ,//|| "http://localhost:4000",
         {
           transports: ["websocket"], // ensures fast connection
         }
@@ -28,36 +28,39 @@ export default function UserUpload() {
   }, []);
 
   const handleUpload = async (e) => {
-    e.preventDefault();
-    if (!file || !kioskId) {
-      setMsg("⚠️ Please select a file and ensure kiosk is connected.");
-      return;
+  e.preventDefault();
+  if (!file || !kioskId) {
+    setMsg("⚠️ Please select a file and ensure kiosk is connected.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("kioskId", kioskId);
+
+  try {
+    const API_BASE_URL = process.env.REACT_APP_API_URL;
+    if (!API_BASE_URL) throw new Error("API_BASE_URL is undefined");
+
+    const res = await fetch(`${API_BASE_URL}/api/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      setUploadSuccess(true);
+      setMsg("✅ File uploaded successfully!");
+      console.log("Cloudinary URL:", data.fileUrl);
+    } else {
+      setMsg("⚠️ Failed to upload file.");
     }
+  } catch (err) {
+    console.error("Upload error:", err);
+    setMsg("❌ Error connecting to server.");
+  }
+};
 
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("kioskId", kioskId);
-
-    try {
-      // const API_BASE_URL = process.env.REACT_APP_API_URL;
-        const res = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: "POST",
-        body: formData,
-        });
-
-
-      const data = await res.json();
-      if (data.success) {
-        setUploadSuccess(true);
-        setMsg("✅ File uploaded successfully!");
-      } else {
-        setMsg("⚠️ Failed to upload file.");
-      }
-    } catch (err) {
-      console.error(err);
-      setMsg("❌ Error connecting to server.");
-    }
-  };
 
   const handlePrint = async () => {
     try {
@@ -104,6 +107,7 @@ export default function UserUpload() {
             </button>
           </form>
         )}
+
 
         {/* Options after upload */}
         {uploadSuccess && (
