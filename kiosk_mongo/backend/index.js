@@ -143,20 +143,33 @@ app.post('/api/login', async (req, res) => {
 // =============================
 // 🔹 Upload File API (Cloudinary)
 // =============================
-app.post("/api/upload", upload.single("file"), async (req, res) => {
-  console.log("File received:", req.file);
-
-  if (!req.file) {
-    return res.status(400).json({ success: false, error: "No file uploaded" });
-  }
-
+// After file upload, emit event to kiosk
+app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
-    res.json({ success: true, fileUrl: req.file.path });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+    // Emit event to kiosk room
+    const kioskId = req.body.kioskId;
+    io.to(kioskId).emit('fileReceived', {
+      filename: req.file.filename,
+      url: fileUrl,
+    });
+
+    res.json({
+      success: true,
+      message: 'File uploaded successfully',
+      file: req.file.filename,
+      url: fileUrl
+    });
+
   } catch (err) {
-    console.error("Upload error:", err);
-    res.status(500).json({ success: false, error: err.message });
+    console.error(err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 // Print endpoint
 app.post("/api/print", express.json(), (req, res) => {
