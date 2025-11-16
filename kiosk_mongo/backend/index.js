@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const multer = require('multer');
 const path = require('path');
 const http = require('http');
+const fs = require("fs");
 const { Server } = require('socket.io');
 const { v2: cloudinary } = require('cloudinary');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
@@ -15,15 +16,13 @@ const Kiosk = require('./models/Kiosk');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
 
 // =============================
-// 🔹 Middleware Setup
+// 🔹 CORS Setup (Vercel / Render)
 // =============================
-// CORS for Vercel frontend
 app.use(
   cors({
-    origin: ["https://kiosk-project-zeta.vercel.app"], // replace with actual
+    origin: ["https://kiosk-project-zeta.vercel.app"], // Your frontend
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -35,45 +34,50 @@ app.use(bodyParser.json());
 // 🔹 MongoDB Connection
 // =============================
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB connected'))
   .catch((err) => console.error('MongoDB error:', err));
 
 // =============================
-// 🔹 Socket.IO Setup
+// 🔹 Socket.IO
 // =============================
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+  }
+});
 
-  socket.on('joinKiosk', (kioskId) => {
+// store kiosk socket references
+const kioskConnections = {};
+
+io.on('connection', (socket) => {
+  console.log('🔌 Client connected:', socket.id);
+
+  // kiosk identifies itself
+  socket.on("joinKiosk", (kioskId) => {
+    kioskConnections[kioskId] = socket.id;
     socket.join(kioskId);
-    console.log(`Socket ${socket.id} joined room ${kioskId}`);
+    console.log(`✔ Kiosk ${kioskId} connected via socket ${socket.id}`);
   });
 
+  // user joined
   socket.on('userConnected', (kioskId) => {
-    io.to(kioskId).emit('userConnectedMessage', 'User connected to this kiosk');
+    io.to(kioskId).emit('userConnectedMessage', 'User connected to kiosk');
   });
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    console.log('❌ Client disconnected:', socket.id);
   });
 });
 
 // =============================
-// 🔹 Cloudinary Configuration
+// 🔹 Cloudinary Upload Setup
 // =============================
-
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-// =============================
-// 🔹 Multer Storage (Cloudinary)
-// =============================
 
 const storage = new CloudinaryStorage({
   cloudinary,
@@ -82,19 +86,21 @@ const storage = new CloudinaryStorage({
     allowed_formats: ["jpg", "png", "pdf"],
   },
 });
-const upload = multer({ storage });
 
+const upload = multer({ storage });
 
 // =============================
 // 🔹 API Routes
 // =============================
+app.get('/', (req, res) => res.send('🖨️ Kiosk backend running successfully'));
 
-app.get('/', (req, res) => res.send('🖨️ Kiosk Mongo backend running'));
-
-// Register API
+// --------------------------------------------------------------
+// 🔹 Register User / Kiosk
+// --------------------------------------------------------------
 app.post('/api/register', async (req, res) => {
   try {
     const { type, username, password, kiosk_name, location } = req.body;
+
     if (type === 'user') {
       if (!username || !password)
         return res.status(400).json({ error: 'Missing username/password' });
@@ -102,6 +108,7 @@ app.post('/api/register', async (req, res) => {
       const user = new User({ username, password });
       await user.save();
       return res.json({ success: true, id: user._id });
+
     } else if (type === 'kiosk') {
       if (!kiosk_name || !password)
         return res.status(400).json({ error: 'Missing kiosk_name/password' });
@@ -109,16 +116,18 @@ app.post('/api/register', async (req, res) => {
       const kiosk = new Kiosk({ kiosk_name, password, location });
       await kiosk.save();
       return res.json({ success: true, id: kiosk._id });
+
     } else {
       return res.status(400).json({ error: 'Invalid type' });
     }
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Login API
+// --------------------------------------------------------------
+// 🔹 Login User / Kiosk
+// --------------------------------------------------------------
 app.post('/api/login', async (req, res) => {
   try {
     const { type, username, password, kiosk_name } = req.body;
@@ -127,64 +136,79 @@ app.post('/api/login', async (req, res) => {
       const user = await User.findOne({ username, password });
       if (!user) return res.status(401).json({ error: 'Invalid credentials' });
       return res.json({ success: true, user });
+
     } else if (type === 'kiosk') {
       const kiosk = await Kiosk.findOne({ kiosk_name, password });
       if (!kiosk) return res.status(401).json({ error: 'Invalid credentials' });
       return res.json({ success: true, kiosk });
+
     } else {
       return res.status(400).json({ error: 'Invalid type' });
     }
+
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// =============================
-// 🔹 Upload File API (Cloudinary)
-// =============================
-// After file upload, emit event to kiosk
+// --------------------------------------------------------------
+// 🔹 Upload File (Cloudinary) → Send to Kiosk
+// --------------------------------------------------------------
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!req.file)
+      return res.status(400).json({ error: "No file uploaded" });
 
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-    // Emit event to kiosk room
     const kioskId = req.body.kioskId;
-    io.to(kioskId).emit('fileReceived', {
-      filename: req.file.filename,
-      url: fileUrl,
-    });
+    if (!kioskId)
+      return res.status(400).json({ error: "Missing kioskId" });
+
+    const fileUrl = req.file.path;  // cloudinary direct URL
+
+    // Emit download command to kiosk PC Agent
+    const kioskSocket = kioskConnections[kioskId];
+
+    if (kioskSocket) {
+      io.to(kioskSocket).emit("startDownload", {
+        fileUrl,
+        originalName: req.file.originalname
+      });
+
+      console.log(`📨 startDownload sent to kiosk ${kioskId}`);
+    } else {
+      console.log("⚠ Kiosk offline");
+    }
 
     res.json({
       success: true,
-      message: 'File uploaded successfully',
-      file: req.file.filename,
+      message: "File uploaded & kiosk notified",
       url: fileUrl
     });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-
-// Print endpoint
+// --------------------------------------------------------------
+// 🔹 Print Command → Send to Kiosk
+// --------------------------------------------------------------
 app.post('/api/print', (req, res) => {
   const { kioskId, color, copies } = req.body;
 
   if (!kioskId) return res.status(400).json({ error: 'Missing kioskId' });
 
-  // Emit print command to kiosk
-  io.to(kioskId).emit('printFile', { color, copies });
+  const kioskSocket = kioskConnections[kioskId];
+
+  if (!kioskSocket)
+    return res.status(400).json({ error: "Kiosk offline" });
+
+  io.to(kioskSocket).emit('printFile', { color, copies });
   res.json({ success: true, message: 'Print command sent to kiosk' });
 });
 
-
 // =============================
-// 🔹 Start Server
+// 🔹 Start Server (Render-Compatible)
 // =============================
-const port = process.env.PORT || 4000;
-server.listen(port, () => console.log(`🚀 Server running on port ${port}`));
+const PORT = process.env.PORT || 4000;
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
