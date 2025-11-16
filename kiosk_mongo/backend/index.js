@@ -7,8 +7,6 @@ const path = require('path');
 const http = require('http');
 const fs = require("fs");
 const { Server } = require('socket.io');
-const { v2: cloudinary } = require('cloudinary');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
 require('dotenv').config();
 
 const User = require('./models/User');
@@ -18,11 +16,11 @@ const app = express();
 const server = http.createServer(app);
 
 // =============================
-// 🔹 CORS Setup (Vercel / Render)
+// 🔹 CORS Setup
 // =============================
 app.use(
   cors({
-    origin: ["https://kiosk-project-zeta.vercel.app"], // Your frontend
+    origin: ["https://kiosk-project-zeta.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   })
@@ -47,76 +45,68 @@ const io = new Server(server, {
   }
 });
 
-// store kiosk socket references (optional map)
 const kioskConnections = {};
 
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
 
-  // kiosk identifies itself and joins a room named by kioskId
   socket.on("joinKiosk", (kioskIdRaw) => {
     const kioskId = (kioskIdRaw || "").toString().trim();
-    if (!kioskId) {
-      console.log(`⚠ joinKiosk called without kioskId by socket ${socket.id}`);
-      return;
-    }
+    if (!kioskId) return;
 
-    kioskConnections[kioskId] = socket.id; // optional record
+    kioskConnections[kioskId] = socket.id;
     socket.join(kioskId);
-    console.log(`✔ Kiosk ${kioskId} connected via socket ${socket.id}`);
+
+    console.log(`✔ Kiosk ${kioskId} connected (socket ${socket.id})`);
   });
 
-  // user joined (forward to kiosk room)
   socket.on('userConnected', (kioskIdRaw) => {
     const kioskId = (kioskIdRaw || "").toString().trim();
-    console.log(`userConnected event for kioskId=${kioskId}`);
-    if (kioskId) io.to(kioskId).emit('userConnectedMessage', 'User connected to kiosk');
+    if (kioskId) {
+      io.to(kioskId).emit('userConnectedMessage', 'User connected to kiosk');
+    }
   });
 
   socket.on('disconnect', () => {
     console.log('❌ Client disconnected:', socket.id);
-    // optional: remove from kioskConnections if present
-    for (const [kId, sId] of Object.entries(kioskConnections)) {
-      if (sId === socket.id) {
-        console.log(`→ Removing kioskConnections entry for ${kId}`);
-        delete kioskConnections[kId];
-        break;
-      }
+    for (const [id, sId] of Object.entries(kioskConnections)) {
+      if (sId === socket.id) delete kioskConnections[id];
     }
   });
 });
 
 // =============================
-// 🔹 Cloudinary Upload Setup
+// 🔹 LOCAL UPLOAD STORAGE (Multer)
 // =============================
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "kiosk_uploads",
-    resource_type: "raw",      // 🔥 IMPORTANT for PDFs
-    allowed_formats: ["pdf", "jpg", "png"],
-    type: "upload",
-    access_mode: "public",   // 🔥 Makes file downloadable without aut,
+// Create uploads folder if missing
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
   },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    cb(null, "file_" + Date.now() + ext);
+  }
 });
-
 
 const upload = multer({ storage });
+
+// Serve uploaded files publicly
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// ------------------------------
 
 // =============================
 // 🔹 API Routes
 // =============================
 app.get('/', (req, res) => res.send('🖨️ Kiosk backend running successfully'));
 
-// --------------------------------------------------------------
-// 🔹 Register User / Kiosk
-// --------------------------------------------------------------
+// -------------------------------
+// Register User / Kiosk
+// -------------------------------
 app.post('/api/register', async (req, res) => {
   try {
     const { type, username, password, kiosk_name, location } = req.body;
@@ -136,18 +126,18 @@ app.post('/api/register', async (req, res) => {
       const kiosk = new Kiosk({ kiosk_name, password, location });
       await kiosk.save();
       return res.json({ success: true, id: kiosk._id });
-
-    } else {
-      return res.status(400).json({ error: 'Invalid type' });
     }
+
+    res.status(400).json({ error: 'Invalid type' });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// --------------------------------------------------------------
-// 🔹 Login User / Kiosk
-// --------------------------------------------------------------
+// -------------------------------
+// Login User / Kiosk
+// -------------------------------
 app.post('/api/login', async (req, res) => {
   try {
     const { type, username, password, kiosk_name } = req.body;
@@ -161,42 +151,32 @@ app.post('/api/login', async (req, res) => {
       const kiosk = await Kiosk.findOne({ kiosk_name, password });
       if (!kiosk) return res.status(401).json({ error: 'Invalid credentials' });
       return res.json({ success: true, kiosk });
-
-    } else {
-      return res.status(400).json({ error: 'Invalid type' });
     }
+
+    res.status(400).json({ error: 'Invalid type' });
 
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// --------------------------------------------------------------
-// 🔹 Upload File (Cloudinary) → Send to Kiosk
-// --------------------------------------------------------------
+// -------------------------------
+// Upload File → Notify kiosk
+// -------------------------------
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file)
       return res.status(400).json({ error: "No file uploaded" });
 
-    const kioskIdRaw = req.body.kioskId;
-    const kioskId = (kioskIdRaw || "").toString().trim();
-
-    console.log("📥 /api/upload called - kioskId received:", kioskIdRaw);
-
+    const kioskId = (req.body.kioskId || "").toString().trim();
     if (!kioskId)
       return res.status(400).json({ error: "Missing kioskId" });
 
-    // Cloudinary path/url (multer-storage-cloudinary provides `path` which is the public URL)
-    const fileUrl = req.file.path || req.file.url || req.file.secure_url || null;
+    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
 
-    if (!fileUrl) {
-      console.error("⚠ Unable to determine Cloudinary file URL:", req.file);
-      return res.status(500).json({ error: "Uploaded but couldn't determine file URL" });
-    }
+    console.log(`📥 File uploaded → ${fileUrl}`);
+    console.log(`📨 Sending startDownload to kiosk ${kioskId}`);
 
-    // Emit download command to kiosk room (use room name, not socket id)
-    console.log(`Emitting startDownload to room: "${kioskId}" with fileUrl: ${fileUrl}`);
     io.to(kioskId).emit("startDownload", fileUrl);
 
     res.json({
@@ -206,36 +186,32 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// --------------------------------------------------------------
-// 🔹 Print Command → Send to Kiosk
-// --------------------------------------------------------------
+// -------------------------------
+// Print Command → Send to kiosk
+// -------------------------------
 app.post('/api/print', (req, res) => {
   try {
     const { kioskId: kioskIdRaw, color, copies } = req.body;
     const kioskId = (kioskIdRaw || "").toString().trim();
 
-    console.log(`/api/print called for kioskId=${kioskId}, color=${color}, copies=${copies}`);
+    if (!kioskId)
+      return res.status(400).json({ error: 'Missing kioskId' });
 
-    if (!kioskId) return res.status(400).json({ error: 'Missing kioskId' });
-
-    // Emit to room name
     io.to(kioskId).emit('printFile', { color, copies });
-    console.log(`📨 printFile emitted to room "${kioskId}"`);
 
     res.json({ success: true, message: 'Print command sent to kiosk' });
+
   } catch (err) {
-    console.error("Print endpoint error:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // =============================
-// 🔹 Start Server (Render-Compatible)
+// Start Server
 // =============================
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
