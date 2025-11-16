@@ -76,28 +76,9 @@ io.on('connection', (socket) => {
 });
 
 // =============================
-// 🔹 LOCAL UPLOAD STORAGE (Multer)
+// 🔹 MEMORY STORAGE (NO DISK)
 // =============================
-
-// Create uploads folder if missing
-const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, "file_" + Date.now() + ext);
-  }
-});
-
-const upload = multer({ storage });
-
-// Serve uploaded files publicly
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-// ------------------------------
+const upload = multer({ storage: multer.memoryStorage() });
 
 // =============================
 // 🔹 API Routes
@@ -112,17 +93,11 @@ app.post('/api/register', async (req, res) => {
     const { type, username, password, kiosk_name, location } = req.body;
 
     if (type === 'user') {
-      if (!username || !password)
-        return res.status(400).json({ error: 'Missing username/password' });
-
       const user = new User({ username, password });
       await user.save();
       return res.json({ success: true, id: user._id });
 
     } else if (type === 'kiosk') {
-      if (!kiosk_name || !password)
-        return res.status(400).json({ error: 'Missing kiosk_name/password' });
-
       const kiosk = new Kiosk({ kiosk_name, password, location });
       await kiosk.save();
       return res.json({ success: true, id: kiosk._id });
@@ -161,7 +136,7 @@ app.post('/api/login', async (req, res) => {
 });
 
 // -------------------------------
-// Upload File → Notify kiosk
+// Upload File → Forward to kiosk (NOT SAVED)
 // -------------------------------
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
@@ -172,20 +147,22 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     if (!kioskId)
       return res.status(400).json({ error: "Missing kioskId" });
 
-    const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    console.log("📥 File received for kiosk:", kioskId);
+    console.log("📄 File name:", req.file.originalname);
 
-    console.log(`📥 File uploaded → ${fileUrl}`);
-    console.log(`📨 Sending startDownload to kiosk ${kioskId}`);
-
-    io.to(kioskId).emit("startDownload", fileUrl);
+    // 🔥 SEND FILE BUFFER TO KIOSK
+    io.to(kioskId).emit("sendFileToKiosk", {
+      buffer: req.file.buffer,
+      originalName: req.file.originalname
+    });
 
     res.json({
       success: true,
-      message: "File uploaded & kiosk notified",
-      url: fileUrl
+      message: "File sent to kiosk successfully"
     });
 
   } catch (err) {
+    console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
 });
