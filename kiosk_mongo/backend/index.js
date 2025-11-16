@@ -172,12 +172,16 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
 
 // Print endpoint
-app.post("/api/print", express.json(), (req, res) => {
-  const { kioskId, color, copies, fileUrl } = req.body;
-  console.log({ kioskId, color, copies, fileUrl });
-  // Implement your actual print logic here
-  res.json({ success: true });
+app.post('/api/print', (req, res) => {
+  const { kioskId, color, copies } = req.body;
+
+  if (!kioskId) return res.status(400).json({ error: 'Missing kioskId' });
+
+  // Emit print command to kiosk
+  io.to(kioskId).emit('printFile', { color, copies });
+  res.json({ success: true, message: 'Print command sent to kiosk' });
 });
+
 
 // =============================
 // 🔹 Start Server
