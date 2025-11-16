@@ -47,26 +47,42 @@ const io = new Server(server, {
   }
 });
 
-// store kiosk socket references
+// store kiosk socket references (optional map)
 const kioskConnections = {};
 
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
 
-  // kiosk identifies itself
-  socket.on("joinKiosk", (kioskId) => {
-    kioskConnections[kioskId] = socket.id;
+  // kiosk identifies itself and joins a room named by kioskId
+  socket.on("joinKiosk", (kioskIdRaw) => {
+    const kioskId = (kioskIdRaw || "").toString().trim();
+    if (!kioskId) {
+      console.log(`⚠ joinKiosk called without kioskId by socket ${socket.id}`);
+      return;
+    }
+
+    kioskConnections[kioskId] = socket.id; // optional record
     socket.join(kioskId);
     console.log(`✔ Kiosk ${kioskId} connected via socket ${socket.id}`);
   });
 
-  // user joined
-  socket.on('userConnected', (kioskId) => {
-    io.to(kioskId).emit('userConnectedMessage', 'User connected to kiosk');
+  // user joined (forward to kiosk room)
+  socket.on('userConnected', (kioskIdRaw) => {
+    const kioskId = (kioskIdRaw || "").toString().trim();
+    console.log(`userConnected event for kioskId=${kioskId}`);
+    if (kioskId) io.to(kioskId).emit('userConnectedMessage', 'User connected to kiosk');
   });
 
   socket.on('disconnect', () => {
     console.log('❌ Client disconnected:', socket.id);
+    // optional: remove from kioskConnections if present
+    for (const [kId, sId] of Object.entries(kioskConnections)) {
+      if (sId === socket.id) {
+        console.log(`→ Removing kioskConnections entry for ${kId}`);
+        delete kioskConnections[kId];
+        break;
+      }
+    }
   });
 });
 
@@ -159,25 +175,25 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     if (!req.file)
       return res.status(400).json({ error: "No file uploaded" });
 
-    const kioskId = req.body.kioskId;
+    const kioskIdRaw = req.body.kioskId;
+    const kioskId = (kioskIdRaw || "").toString().trim();
+
+    console.log("📥 /api/upload called - kioskId received:", kioskIdRaw);
+
     if (!kioskId)
       return res.status(400).json({ error: "Missing kioskId" });
 
-    const fileUrl = req.file.path;  // cloudinary direct URL
+    // Cloudinary path/url (multer-storage-cloudinary provides `path` which is the public URL)
+    const fileUrl = req.file.path || req.file.url || req.file.secure_url || null;
 
-    // Emit download command to kiosk PC Agent
-    const kioskSocket = kioskConnections[kioskId];
-
-    if (kioskSocket) {
-      io.to(kioskSocket).emit("startDownload", {
-        fileUrl,
-        originalName: req.file.originalname
-      });
-
-      console.log(`📨 startDownload sent to kiosk ${kioskId}`);
-    } else {
-      console.log("⚠ Kiosk offline");
+    if (!fileUrl) {
+      console.error("⚠ Unable to determine Cloudinary file URL:", req.file);
+      return res.status(500).json({ error: "Uploaded but couldn't determine file URL" });
     }
+
+    // Emit download command to kiosk room (use room name, not socket id)
+    console.log(`Emitting startDownload to room: "${kioskId}" with fileUrl: ${fileUrl}`);
+    io.to(kioskId).emit("startDownload", fileUrl);
 
     res.json({
       success: true,
@@ -186,6 +202,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     });
 
   } catch (err) {
+    console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -194,17 +211,23 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 // 🔹 Print Command → Send to Kiosk
 // --------------------------------------------------------------
 app.post('/api/print', (req, res) => {
-  const { kioskId, color, copies } = req.body;
+  try {
+    const { kioskId: kioskIdRaw, color, copies } = req.body;
+    const kioskId = (kioskIdRaw || "").toString().trim();
 
-  if (!kioskId) return res.status(400).json({ error: 'Missing kioskId' });
+    console.log(`/api/print called for kioskId=${kioskId}, color=${color}, copies=${copies}`);
 
-  const kioskSocket = kioskConnections[kioskId];
+    if (!kioskId) return res.status(400).json({ error: 'Missing kioskId' });
 
-  if (!kioskSocket)
-    return res.status(400).json({ error: "Kiosk offline" });
+    // Emit to room name
+    io.to(kioskId).emit('printFile', { color, copies });
+    console.log(`📨 printFile emitted to room "${kioskId}"`);
 
-  io.to(kioskSocket).emit('printFile', { color, copies });
-  res.json({ success: true, message: 'Print command sent to kiosk' });
+    res.json({ success: true, message: 'Print command sent to kiosk' });
+  } catch (err) {
+    console.error("Print endpoint error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // =============================
