@@ -99,9 +99,13 @@ const storage = new CloudinaryStorage({
   cloudinary,
   params: {
     folder: "kiosk_uploads",
-    allowed_formats: ["jpg", "png", "pdf"],
+    resource_type: "raw",      // 🔥 IMPORTANT for PDFs
+    allowed_formats: ["pdf", "jpg", "png"],
+    type: "upload",
+    access_mode: "public",   // 🔥 Makes file downloadable without aut,
   },
 });
+
 
 const upload = multer({ storage });
 
