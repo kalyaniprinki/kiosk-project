@@ -81,7 +81,7 @@ io.on('connection', (socket) => {
 // =============================
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
+  limits: { fileSize: 100 * 1024 * 1024 } // 50 MB
 });
 
 // =============================
@@ -144,13 +144,18 @@ app.post('/api/login', async (req, res) => {
 // -------------------------------
 // Upload File → Save to MongoDB for user
 // -------------------------------
+// Upload File → Save to MongoDB for user only
+// -------------------------------
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
+    // Check if file is received
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+    // Get userId from request body
     const userId = (req.body.userId || "").toString().trim();
     if (!userId) return res.status(400).json({ error: "Missing userId" });
 
+    // Verify user exists
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -162,31 +167,24 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       size: req.file.size,
       fileData: req.file.buffer,
     });
+
     await userFile.save();
 
     console.log(`💾 File saved to MongoDB for user ${userId} - ${req.file.originalname}`);
-
-    // Optional: forward to kiosk
-    const kioskId = (req.body.kioskId || "").toString().trim();
-    if (kioskId && kioskConnections[kioskId]) {
-      const fileBase64 = req.file.buffer.toString('base64');
-      io.to(kioskConnections[kioskId]).emit("sendFileToKiosk", {
-        filename: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        fileBase64
-      });
-      console.log(`📨 Forwarded file to kiosk ${kioskId}`);
-    }
 
     return res.json({ success: true, message: "File uploaded and saved to database" });
 
   } catch (err) {
     console.error("Upload/DB error:", err);
-    if (err && err.code === "LIMIT_FILE_SIZE") return res.status(413).json({ error: "File too large" });
+
+    if (err && err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "File too large" });
+    }
+
     return res.status(500).json({ error: err.message });
   }
 });
+
 
 // -------------------------------
 // Print Command → Send to kiosk
