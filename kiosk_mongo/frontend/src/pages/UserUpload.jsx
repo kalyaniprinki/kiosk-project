@@ -1,48 +1,28 @@
-import React, { useState, useEffect } from "react";
-import { io } from "socket.io-client";
+import React, { useState } from "react";
 
-export default function UserUpload() {
-  const [kioskId, setKioskId] = useState(null);
+export default function UserUpload({ currentUserId }) {
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [fileUrl, setFileUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [color, setColor] = useState("black_white");
   const [copies, setCopies] = useState(1);
-  const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL =
     process.env.REACT_APP_API_URL || "https://kiosk-project-pm6r.onrender.com";
-  const SOCKET_URL =
-    process.env.REACT_APP_SOCKET_URL || "https://kiosk-project-pm6r.onrender.com";
-
-  // Connect to kiosk via QR
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("kiosk");
-    if (id) {
-      setKioskId(id);
-      const socket = io(SOCKET_URL, { transports: ["websocket"] });
-      socket.emit("userConnected", id);
-
-      socket.on("userConnectedMessage", (msg) => console.log(msg));
-
-      return () => socket.disconnect();
-    }
-  }, []);
 
   // Handle file upload
   const handleUpload = async (e) => {
     e.preventDefault();
 
-    if (!file || !kioskId) {
-      setMsg("⚠️ Please select a file and ensure kiosk is connected.");
+    if (!file || !currentUserId) {
+      setMsg("⚠️ Please select a file and ensure user is logged in.");
       return;
     }
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("kioskId", kioskId);
+    formData.append("userId", currentUserId); // mandatory for backend
 
     try {
       setUploading(true);
@@ -58,11 +38,10 @@ export default function UserUpload() {
 
       if (data.success) {
         setUploadSuccess(true);
-        setFileUrl(data.fileUrl);
         setMsg("✅ File uploaded successfully!");
-        console.log("Uploaded file URL:", data.fileUrl);
+        console.log("Upload response:", data);
       } else {
-        setMsg("⚠️ Failed to upload file.");
+        setMsg(`⚠️ Failed to upload file: ${data.error || "Unknown error"}`);
       }
     } catch (err) {
       setUploading(false);
@@ -71,39 +50,15 @@ export default function UserUpload() {
     }
   };
 
-  // Handle print request
+  // Optional: handle print (can call /api/print if needed)
   const handlePrint = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/print`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kioskId, color, copies, fileUrl }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setMsg("🖨️ Print command sent successfully!");
-      } else {
-        setMsg("⚠️ Failed to send print command.");
-      }
-    } catch (err) {
-      setMsg("❌ Print error.");
-      console.error(err);
-    }
+    setMsg("🖨️ Print function not implemented yet");
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h1 style={styles.title}>📤 Upload File for Printing</h1>
-
-        {kioskId ? (
-          <p style={styles.subtitle}>
-            Connected to Kiosk: <strong>{kioskId}</strong>
-          </p>
-        ) : (
-          <p style={{ color: "red" }}>No kiosk connection found.</p>
-        )}
+        <h1 style={styles.title}>📤 Upload File</h1>
 
         {/* Upload form */}
         {!uploadSuccess && (
@@ -123,7 +78,7 @@ export default function UserUpload() {
         {/* Options after upload */}
         {uploadSuccess && (
           <div style={styles.optionsBox}>
-            <h3>🖨️ Print Settings</h3>
+            <h3>🖨️ Print Settings (Optional)</h3>
 
             <div style={styles.optionsRow}>
               <label>Color:</label>
@@ -152,15 +107,6 @@ export default function UserUpload() {
             <button style={styles.printButton} onClick={handlePrint}>
               Print Now
             </button>
-
-            {fileUrl && (
-              <p>
-                File URL:{" "}
-                <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                  {fileUrl}
-                </a>
-              </p>
-            )}
           </div>
         )}
 
@@ -187,8 +133,7 @@ const styles = {
     width: "460px",
     boxShadow: "0 10px 25px rgba(0,0,0,0.3)",
   },
-  title: { fontSize: "1.8rem", marginBottom: "10px", color: "#333" },
-  subtitle: { marginBottom: "25px", color: "#444" },
+  title: { fontSize: "1.8rem", marginBottom: "20px", color: "#333" },
   form: { display: "flex", flexDirection: "column", gap: "15px" },
   fileInput: { fontSize: "1rem" },
   button: {
