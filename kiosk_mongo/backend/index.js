@@ -1,3 +1,4 @@
+// server.js (fixed)
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -45,18 +46,22 @@ const io = new Server(server, {
   }
 });
 
+// kioskId -> socketId
 const kioskConnections = {};
 
 io.on('connection', (socket) => {
   console.log('🔌 Client connected:', socket.id);
 
+  // kiosk must send this after connecting
   socket.on("joinKiosk", (kioskIdRaw) => {
     const kioskId = (kioskIdRaw || "").toString().trim();
-    if (!kioskId) return;
+    if (!kioskId) {
+      console.log(`⚠ joinKiosk called without kioskId by socket ${socket.id}`);
+      return;
+    }
 
     kioskConnections[kioskId] = socket.id;
     socket.join(kioskId);
-
     console.log(`✔ Kiosk ${kioskId} connected (socket ${socket.id})`);
   });
 
@@ -69,8 +74,12 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('❌ Client disconnected:', socket.id);
-    for (const [id, sId] of Object.entries(kioskConnections)) {
-      if (sId === socket.id) delete kioskConnections[id];
+    // remove mapping(s) for this socket
+    for (const [kId, sId] of Object.entries(kioskConnections)) {
+      if (sId === socket.id) {
+        delete kioskConnections[kId];
+        console.log(`→ Removed mapping kiosk ${kId} => ${sId}`);
+      }
     }
   });
 });
@@ -78,7 +87,11 @@ io.on('connection', (socket) => {
 // =============================
 // 🔹 MEMORY STORAGE (NO DISK)
 // =============================
-const upload = multer({ storage: multer.memoryStorage() });
+// limit file size (adjust as needed). Example: 50 MB
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
+});
 
 // =============================
 // 🔹 API Routes
@@ -106,6 +119,7 @@ app.post('/api/register', async (req, res) => {
     res.status(400).json({ error: 'Invalid type' });
 
   } catch (err) {
+    console.error('Register error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -131,6 +145,7 @@ app.post('/api/login', async (req, res) => {
     res.status(400).json({ error: 'Invalid type' });
 
   } catch (err) {
+    console.error('Login error:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -140,30 +155,45 @@ app.post('/api/login', async (req, res) => {
 // -------------------------------
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
-    if (!req.file)
-      return res.status(400).json({ error: "No file uploaded" });
+    // Basic validation
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const kioskId = (req.body.kioskId || "").toString().trim();
-    if (!kioskId)
-      return res.status(400).json({ error: "Missing kioskId" });
+    if (!kioskId) return res.status(400).json({ error: "Missing kioskId" });
 
-    console.log("📥 File received for kiosk:", kioskId);
-    console.log("📄 File name:", req.file.originalname);
+    console.log(`📥 Upload received for kiosk=${kioskId} filename=${req.file.originalname} size=${req.file.size} bytes`);
 
-    // 🔥 SEND FILE BUFFER TO KIOSK
-    io.to(kioskId).emit("sendFileToKiosk", {
-      buffer: req.file.buffer,
-      originalName: req.file.originalname
-    });
+    // Check if kiosk connected
+    const kioskSocketId = kioskConnections[kioskId];
+    if (!kioskSocketId) {
+      console.warn(`⚠ Kiosk ${kioskId} not connected right now (no socket).`);
+      return res.status(410).json({ error: "Kiosk offline or not connected" });
+    }
 
-    res.json({
-      success: true,
-      message: "File sent to kiosk successfully"
-    });
+    // Convert buffer -> base64 string for reliable transport
+    const fileBase64 = req.file.buffer.toString('base64');
+
+    const payload = {
+      filename: req.file.originalname,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      fileBase64 // large string
+    };
+
+    // Emit directly to the kiosk socket id (more explicit)
+    io.to(kioskSocketId).emit("sendFileToKiosk", payload);
+
+    console.log(`📨 Forwarded file to kiosk ${kioskId} (socket ${kioskSocketId})`);
+
+    return res.json({ success: true, message: "File sent to kiosk" });
 
   } catch (err) {
-    console.error("Upload error:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Upload/forward error:", err);
+    // Multer file-size error handling
+    if (err && err.code === "LIMIT_FILE_SIZE") {
+      return res.status(413).json({ error: "File too large" });
+    }
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -175,14 +205,22 @@ app.post('/api/print', (req, res) => {
     const { kioskId: kioskIdRaw, color, copies } = req.body;
     const kioskId = (kioskIdRaw || "").toString().trim();
 
-    if (!kioskId)
-      return res.status(400).json({ error: 'Missing kioskId' });
+    if (!kioskId) return res.status(400).json({ error: 'Missing kioskId' });
 
-    io.to(kioskId).emit('printFile', { color, copies });
+    const kioskSocketId = kioskConnections[kioskId];
+    if (!kioskSocketId) {
+      console.warn(`⚠ print requested but kiosk ${kioskId} not connected`);
+      return res.status(410).json({ error: "Kiosk offline or not connected" });
+    }
 
-    res.json({ success: true, message: 'Print command sent to kiosk' });
+    // emit print command
+    io.to(kioskSocketId).emit('printFile', { color, copies });
+    console.log(`📨 printFile emitted to kiosk ${kioskId} (socket ${kioskSocketId})`);
+
+    return res.json({ success: true, message: 'Print command sent to kiosk' });
 
   } catch (err) {
+    console.error("Print endpoint error:", err);
     res.status(500).json({ error: err.message });
   }
 });
