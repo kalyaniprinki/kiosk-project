@@ -6,25 +6,31 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UserHome from "./pages/UserHome";
 import KioskHome from "./pages/KioskHome";
-import UserUpload from "./pages/UserUpload"; // new page for QR scan upload
 
-// 🔁 Wrapper to allow navigation inside components
+// NEW PAGES
+import UserPanel from "./pages/UserPanel";
+import UploadFile from "./pages/UploadFile";
+import PrintFile from "./pages/PrintFile";
+
+// Old QR-based upload route (still needed)
+import UserUpload from "./pages/UserUpload";
+
 function AppWrapper() {
   const navigate = useNavigate();
   const [userType, setUserType] = useState(null);
 
-  // handle login success
+  // login success
   const handleLoginSuccess = (data, type) => {
     if (type === "user") {
       setUserType("user");
-      navigate("/user/home");
+      navigate("/user/panel");   // 🟢 redirect to new panel
     } else if (type === "kiosk") {
       setUserType("kiosk");
       navigate("/kiosk/home");
     }
   };
 
-  // handle logout
+  // logout
   const handleLogout = () => {
     setUserType(null);
     navigate("/");
@@ -70,7 +76,25 @@ function AppWrapper() {
       {/* 🆕 Register */}
       <Route path="/register" element={<Register onBack={() => navigate("/")} />} />
 
-      {/* 👤 User Home */}
+      {/* 👤 USER PANEL (Upload + Print Options) */}
+      <Route
+        path="/user/panel"
+        element={<UserPanel onLogout={handleLogout} />}
+      />
+
+      {/* 📤 Upload File page */}
+      <Route
+        path="/user/upload"
+        element={<UploadFile />}
+      />
+
+      {/* 🖨️ Print File page */}
+      <Route
+        path="/user/print"
+        element={<PrintFile />}
+      />
+
+      {/* 👤 OLD: User Home (keep it if needed) */}
       <Route
         path="/user/home"
         element={<UserHome onLogout={handleLogout} />}
@@ -82,7 +106,7 @@ function AppWrapper() {
         element={<KioskHome onLogout={handleLogout} />}
       />
 
-      {/* 🔗 User Upload (after scanning QR) */}
+      {/* 🔗 QR-Based Connection (auto-open upload/print panel) */}
       <Route path="/connect" element={<UserUpload />} />
     </Routes>
   );
