@@ -98,6 +98,31 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // ---- Routes ----
 app.get('/', (req, res) => res.send('Kiosk backend running'));
+// -------------------------
+
+// POST /api/login
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) 
+      return res.status(400).json({ success: false, error: 'Missing username or password' });
+
+    // Find user
+    const user = await User.findOne({ username });
+    if (!user) 
+      return res.status(401).json({ success: false, error: 'User not found' });
+
+    // Simple password check (replace with hashed password in production)
+    if (user.password !== password) 
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+
+    // Return user info (or JWT token if you want)
+    res.json({ success: true, userId: user._id.toString(), username: user.username });
+  } catch (err) {
+    console.error('Login API error', err);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
 
 /**
  * POST /api/upload
