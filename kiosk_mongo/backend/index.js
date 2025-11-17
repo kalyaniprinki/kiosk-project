@@ -38,51 +38,55 @@ mongoose
   .catch((err) => console.error('MongoDB error:', err));
 
 // =====================================
-// 🔹 Socket.IO
+// 🔹 Socket.IO (FIXED VERSION)
 // =====================================
 const io = new Server(server, { cors: { origin: "*" } });
 const kioskConnections = {}; // kioskId → socketId
 
-io.on('connection', (socket) => {
-  console.log('🔌 Client connected:', socket.id);
+io.on("connection", (socket) => {
+  console.log("🔌 Client connected:", socket.id);
 
+  // --------------------------------------
+  // 🖥️ 1. Kiosk joins
+  // --------------------------------------
   socket.on("joinKiosk", (kioskIdRaw) => {
     const kioskId = (kioskIdRaw || "").trim();
     if (!kioskId) return;
 
-    kioskConnections[kioskId] = socket.id;
+    kioskConnections[kioskId] = socket.id; // Save correct kiosk socket
+    socket.kioskId = kioskId; // Attach kioskId to this socket
     socket.join(kioskId);
 
     console.log(`✔ Kiosk ${kioskId} connected (socket ${socket.id})`);
   });
 
-  io.on("connection", (socket) => {
-
-  // User connects after scanning QR
+  // --------------------------------------
+  // 📱 2. User connects to kiosk (after QR scan)
+  // --------------------------------------
   socket.on("userConnected", ({ kioskId, userId }) => {
+    if (!kioskId) return;
 
-    console.log("User connected to kiosk:", kioskId, "User:", userId);
+    console.log(`📲 User ${userId} connected to kiosk ${kioskId}`);
 
-    // User joins the kiosk socket room
     socket.join(kioskId);
 
-    // Notify the kiosk frontend
+    // notify kiosk screen
     io.to(kioskId).emit(
       "userConnectedMessage",
       `User connected (ID: ${userId})`
     );
   });
 
-});
+  // --------------------------------------
+  // ❌ 3. Disconnect (only remove kiosk if THIS socket was kiosk)
+  // --------------------------------------
+  socket.on("disconnect", () => {
+    console.log("❌ Client disconnected:", socket.id);
 
-
-  socket.on('disconnect', () => {
-    console.log('❌ Client disconnected:', socket.id);
-    for (const [kId, sId] of Object.entries(kioskConnections)) {
-      if (sId === socket.id) {
-        delete kioskConnections[kId];
-        console.log(`→ Removed kiosk ${kId} mapping`);
-      }
+    // Only remove mapping if the actual kiosk disconnected
+    if (socket.kioskId && kioskConnections[socket.kioskId] === socket.id) {
+      console.log(`⚠️ Kiosk disconnected: ${socket.kioskId}`);
+      delete kioskConnections[socket.kioskId];
     }
   });
 });
