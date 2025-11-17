@@ -1,6 +1,20 @@
 import React, { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-export default function UserUpload({ currentUserId, kioskId }) {
+export default function UserUpload({ currentUserId }) {
+  const [params] = useSearchParams();
+
+  // priority: URL → localStorage → null
+  const kioskId = params.get("kioskId") || localStorage.getItem("kioskId");
+
+  // save kioskId permanently
+  if (params.get("kioskId")) {
+    localStorage.setItem("kioskId", params.get("kioskId"));
+  }
+
+
+
+// export default function UserUpload({ currentUserId, kioskId }) {
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
