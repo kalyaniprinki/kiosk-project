@@ -49,7 +49,7 @@ function AppWrapper() {
           <Login
             type="user"
             onBack={() => navigate("/")}
-            onSuccess={(data, type) => handleLoginSuccess(data, type)}
+            onSuccess={(data) => handleLoginSuccess(data, "user")}
           />
         }
       />
@@ -61,7 +61,7 @@ function AppWrapper() {
           <Login
             type="kiosk"
             onBack={() => navigate("/")}
-            onSuccess={(data, type) => handleLoginSuccess(data, type)}
+            onSuccess={(data) => handleLoginSuccess(data, "kiosk")}
           />
         }
       />
