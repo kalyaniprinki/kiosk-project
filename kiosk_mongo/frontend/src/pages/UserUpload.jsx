@@ -4,6 +4,7 @@ export default function UserUpload({ currentUserId, kioskId }) {
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [fileUploaded, setFileUploaded] = useState(false);
 
   // print settings
   const [color, setColor] = useState("black_white");
@@ -12,7 +13,8 @@ export default function UserUpload({ currentUserId, kioskId }) {
   const API_BASE_URL =
     process.env.REACT_APP_API_URL || "https://kiosk-project-pm6r.onrender.com";
 
-  const handleUpload = async (e) => {
+  // STEP 1 — Upload only the file
+  const handleFileUpload = async (e) => {
     e.preventDefault();
 
     if (!file) return setMsg("⚠️ Please select a file.");
@@ -23,12 +25,10 @@ export default function UserUpload({ currentUserId, kioskId }) {
     formData.append("file", file);
     formData.append("userId", currentUserId);
     formData.append("kioskId", kioskId);
-    formData.append("color", color);
-    formData.append("copies", copies);
 
     try {
       setUploading(true);
-      setMsg("⏳ Uploading...");
+      setMsg("⏳ Uploading file...");
 
       const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: "POST",
@@ -39,7 +39,8 @@ export default function UserUpload({ currentUserId, kioskId }) {
       setUploading(false);
 
       if (data.success) {
-        setMsg("✅ File uploaded successfully! Ready at kiosk.");
+        setFileUploaded(true);
+        setMsg("✅ File uploaded successfully! Now choose print options.");
       } else {
         setMsg(`❌ Upload failed: ${data.error}`);
       }
@@ -47,6 +48,35 @@ export default function UserUpload({ currentUserId, kioskId }) {
       setUploading(false);
       console.error(err);
       setMsg("❌ Error uploading file.");
+    }
+  };
+
+  // STEP 2 — Send print settings
+  const handlePrint = async () => {
+    setMsg("⏳ Sending print command...");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/print`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUserId,
+          kioskId,
+          color,
+          copies,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setMsg("🖨️ Print command sent to kiosk!");
+      } else {
+        setMsg(`❌ Print failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(error);
+      setMsg("❌ Error sending print command.");
     }
   };
 
@@ -59,45 +89,65 @@ export default function UserUpload({ currentUserId, kioskId }) {
           Connected to kiosk: <b>{kioskId || "Not Connected"}</b>
         </p>
 
-        <form onSubmit={handleUpload} style={styles.form}>
-          <input
-            type="file"
-            accept="application/pdf,image/*"
-            onChange={(e) => setFile(e.target.files[0])}
-            style={styles.fileInput}
-          />
+        {/* Step 1 — File upload */}
+        {!fileUploaded && (
+          <form onSubmit={handleFileUpload} style={styles.form}>
+            <input
+              type="file"
+              accept="application/pdf,image/*"
+              onChange={(e) => setFile(e.target.files[0])}
+              style={styles.fileInput}
+            />
 
-          {/* print settings */}
-          <div style={styles.optionsBox}>
-            <div style={styles.optionsRow}>
-              <label>Color:</label>
-              <select
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                style={styles.select}
-              >
-                <option value="black_white">Black & White</option>
-                <option value="color">Color</option>
-              </select>
+            <button
+              type="submit"
+              style={styles.button}
+              disabled={uploading}
+            >
+              {uploading ? "Uploading..." : "Upload File"}
+            </button>
+          </form>
+        )}
+
+        {/* Step 2 — Print settings */}
+        {fileUploaded && (
+          <>
+            <h3 style={{ marginTop: "20px" }}>🖨️ Print Settings</h3>
+
+            <div style={styles.optionsBox}>
+              <div style={styles.optionsRow}>
+                <label>Color:</label>
+                <select
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  style={styles.select}
+                >
+                  <option value="black_white">Black & White</option>
+                  <option value="color">Color</option>
+                </select>
+              </div>
+
+              <div style={styles.optionsRow}>
+                <label>Copies:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={copies}
+                  onChange={(e) => setCopies(e.target.value)}
+                  style={styles.numberInput}
+                />
+              </div>
             </div>
 
-            <div style={styles.optionsRow}>
-              <label>Copies:</label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={copies}
-                onChange={(e) => setCopies(e.target.value)}
-                style={styles.numberInput}
-              />
-            </div>
-          </div>
-
-          <button type="submit" style={styles.button} disabled={uploading}>
-            {uploading ? "Uploading..." : "Upload & Send to Kiosk"}
-          </button>
-        </form>
+            <button
+              onClick={handlePrint}
+              style={{ ...styles.button, marginTop: "15px" }}
+            >
+              Send Print Command
+            </button>
+          </>
+        )}
 
         {msg && <p style={styles.message}>{msg}</p>}
       </div>
@@ -126,7 +176,6 @@ const styles = {
   title: { fontSize: "1.8rem", marginBottom: "20px", color: "#333" },
   form: { display: "flex", flexDirection: "column", gap: "15px" },
   fileInput: { fontSize: "1rem" },
-
   button: {
     backgroundColor: "#0078ff",
     color: "white",
@@ -136,7 +185,6 @@ const styles = {
     cursor: "pointer",
     fontSize: "1rem",
   },
-
   optionsBox: {
     marginTop: "15px",
     padding: "15px",
@@ -162,7 +210,6 @@ const styles = {
     border: "1px solid #ccc",
     textAlign: "center",
   },
-
   message: {
     marginTop: "15px",
     fontWeight: "500",
