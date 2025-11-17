@@ -20,7 +20,7 @@ export default function Login({ type, onBack, onSuccess }) {
     const data = await res.json();
     // inside handleSubmit after you get `data`
 if (data.success) {
-  onSuccess(data);  // ✅ call success handler
+  onSuccess(data,type);  // ✅ call success handler
 } else {
   setMsg("Invalid credentials");
 }
