@@ -5,15 +5,29 @@ export default function Login({ type, onBack, onSuccess }) {
   const [msg, setMsg] = useState(null);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
+  setMsg(null);
 
-    const body =
-      type === 'user'
-        ? { type: 'user', username: form.username, password: form.password }
-        : { type: 'kiosk', kiosk_name: form.kiosk_name, password: form.password };
+  if (type === 'user') {
+    if (!form.username || !form.password) {
+      setMsg('Please enter username and password');
+      return;
+    }
+  } else {
+    if (!form.kiosk_name || !form.password) {
+      setMsg('Please enter kiosk name and password');
+      return;
+    }
+  }
 
-    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+  const body =
+    type === 'user'
+      ? { username: form.username, password: form.password }
+      : { kiosk_name: form.kiosk_name, password: form.password };
 
+  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+
+  try {
     const res = await fetch(`${API_BASE}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -23,11 +37,15 @@ export default function Login({ type, onBack, onSuccess }) {
     const data = await res.json();
 
     if (data.success) {
-      onSuccess(data, type);   // ✅ FIXED: pass login type also
+      onSuccess(data, type);
     } else {
-      setMsg("Invalid credentials");
+      setMsg(data.error || 'Invalid credentials');
     }
-  };
+  } catch (err) {
+    console.error('Login error:', err);
+    setMsg('Network or server error');
+  }
+};
 
   return (
     <div style={styles.container}>
