@@ -56,10 +56,25 @@ io.on('connection', (socket) => {
     console.log(`✔ Kiosk ${kioskId} connected (socket ${socket.id})`);
   });
 
-  socket.on("userConnected", (kioskIdRaw) => {
-    const kioskId = (kioskIdRaw || "").trim();
-    if (kioskId) io.to(kioskId).emit("userConnectedMessage", "User connected to kiosk");
+  io.on("connection", (socket) => {
+
+  // User connects after scanning QR
+  socket.on("userConnected", ({ kioskId, userId }) => {
+
+    console.log("User connected to kiosk:", kioskId, "User:", userId);
+
+    // User joins the kiosk socket room
+    socket.join(kioskId);
+
+    // Notify the kiosk frontend
+    io.to(kioskId).emit(
+      "userConnectedMessage",
+      `User connected (ID: ${userId})`
+    );
   });
+
+});
+
 
   socket.on('disconnect', () => {
     console.log('❌ Client disconnected:', socket.id);
