@@ -6,32 +6,35 @@ export default function Login({ type, onBack, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const body =
       type === 'user'
         ? { type: 'user', username: form.username, password: form.password }
         : { type: 'kiosk', kiosk_name: form.kiosk_name, password: form.password };
 
-        const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+    const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:4000';
+
     const res = await fetch(`${API_BASE}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
-    // inside handleSubmit after you get `data`
-if (data.success) {
-  onSuccess(data,type);  // ✅ call success handler
-} else {
-  setMsg("Invalid credentials");
-}
 
-    //setMsg(JSON.stringify(data, null, 2));
+    const data = await res.json();
+
+    if (data.success) {
+      onSuccess(data, type);   // ✅ FIXED: pass login type also
+    } else {
+      setMsg("Invalid credentials");
+    }
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h2 style={styles.title}>{type === 'user' ? '👤 User Login' : '🖥️ Kiosk Login'}</h2>
+        <h2 style={styles.title}>
+          {type === 'user' ? '👤 User Login' : '🖥️ Kiosk Login'}
+        </h2>
 
         <form style={styles.form} onSubmit={handleSubmit}>
           {type === 'user' ? (
@@ -58,7 +61,9 @@ if (data.success) {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
 
-          <button style={styles.loginBtn}>Login</button>
+          <button type="submit" style={styles.loginBtn}>
+            Login
+          </button>
         </form>
 
         <button style={styles.backBtn} onClick={onBack}>
@@ -103,8 +108,6 @@ const styles = {
     fontSize: '1rem',
     borderRadius: '8px',
     border: '1px solid #ccc',
-    outline: 'none',
-    transition: 'border-color 0.2s ease',
   },
   loginBtn: {
     backgroundColor: '#4CAF50',
@@ -115,7 +118,6 @@ const styles = {
     borderRadius: '8px',
     cursor: 'pointer',
     marginTop: '10px',
-    transition: 'transform 0.2s ease, opacity 0.2s ease',
   },
   backBtn: {
     marginTop: '20px',
@@ -129,11 +131,8 @@ const styles = {
   },
   msg: {
     marginTop: '20px',
-    textAlign: 'left',
     backgroundColor: '#f5f5f5',
     padding: '10px',
     borderRadius: '8px',
-    fontSize: '0.9rem',
-    color: '#333',
   },
 };
