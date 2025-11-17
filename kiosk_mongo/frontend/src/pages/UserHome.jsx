@@ -8,33 +8,26 @@ export default function UserHome({ onLogout }) {
   const navigate = useNavigate();
 
   const handleScan = (result) => {
-  if (!result) return;
+    if (result) {
+      const scannedText = result.text;
+      setScanResult(scannedText);
+      setScanning(false);
 
-  const scannedText = result.text;
-  setScanResult(scannedText);
-  setScanning(false);
+    //   console.log("✅ Scanned QR:", scannedText);
 
-  // Case 1: QR contains a full URL like:
-  // https://yourapp.com/upload?kioskId=KIOSK12345
-  if (scannedText.startsWith("http")) {
-    const url = new URL(scannedText);
-    const kioskIdParam = url.searchParams.get("kioskId");
-
-    if (kioskIdParam) {
-      localStorage.setItem("kioskId", kioskIdParam);
-      navigate(`/upload?kioskId=${encodeURIComponent(kioskIdParam)}`);
-    } else {
-      alert("Invalid QR: No kioskId found");
+      // Example: scannedText might be a kiosk URL or JSON with kioskId
+      // Case 1: If your QR contains kiosk URL like https://yourapp.com/upload?kioskId=123
+      if (scannedText.startsWith("http")) {
+        // Redirect to that URL
+        window.location.href = scannedText;
+      } 
+      // Case 2: If your QR only contains kioskId
+      else {
+        alert(`Scanned QR: ${scannedText}`);
+        navigate(`/connect?kioskId=${encodeURIComponent(scannedText)}`);
+      }
     }
-  }
-
-  // Case 2: QR contains ONLY kioskId
-  else {
-    localStorage.setItem("kioskId", scannedText);
-    navigate(`/upload?kioskId=${encodeURIComponent(scannedText)}`);
-  }
-};
-// -------------------------
+  };
 
   const handleError = (err) => {
     console.error("QR Scan Error:", err);
