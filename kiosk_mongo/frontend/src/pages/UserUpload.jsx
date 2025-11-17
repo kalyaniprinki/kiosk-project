@@ -1,32 +1,34 @@
 import React, { useState } from "react";
 
-export default function UserUpload({ currentUserId }) {
+export default function UserUpload({ currentUserId, kioskId }) {
   const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
-  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // print settings
   const [color, setColor] = useState("black_white");
   const [copies, setCopies] = useState(1);
 
   const API_BASE_URL =
     process.env.REACT_APP_API_URL || "https://kiosk-project-pm6r.onrender.com";
 
-  // Handle file upload
   const handleUpload = async (e) => {
     e.preventDefault();
 
-    if (!file || !currentUserId) {
-      setMsg("⚠️ Please select a file and ensure user is logged in.");
-      return;
-    }
+    if (!file) return setMsg("⚠️ Please select a file.");
+    if (!currentUserId) return setMsg("⚠️ User not logged in.");
+    if (!kioskId) return setMsg("⚠️ No kiosk connected! Scan QR again.");
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("userId", currentUserId); // mandatory for backend
+    formData.append("userId", currentUserId);
+    formData.append("kioskId", kioskId);
+    formData.append("color", color);
+    formData.append("copies", copies);
 
     try {
       setUploading(true);
-      setMsg("⏳ Uploading file...");
+      setMsg("⏳ Uploading...");
 
       const res = await fetch(`${API_BASE_URL}/api/upload`, {
         method: "POST",
@@ -37,49 +39,36 @@ export default function UserUpload({ currentUserId }) {
       setUploading(false);
 
       if (data.success) {
-        setUploadSuccess(true);
-        setMsg("✅ File uploaded successfully!");
-        console.log("Upload response:", data);
+        setMsg("✅ File uploaded successfully! Ready at kiosk.");
       } else {
-        setMsg(`⚠️ Failed to upload file: ${data.error || "Unknown error"}`);
+        setMsg(`❌ Upload failed: ${data.error}`);
       }
     } catch (err) {
       setUploading(false);
-      console.error("Upload error:", err);
-      setMsg("❌ Error connecting to server.");
+      console.error(err);
+      setMsg("❌ Error uploading file.");
     }
-  };
-
-  // Optional: handle print (can call /api/print if needed)
-  const handlePrint = async () => {
-    setMsg("🖨️ Print function not implemented yet");
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <h1 style={styles.title}>📤 Upload File</h1>
+        <h1 style={styles.title}>📤 Upload Your File</h1>
 
-        {/* Upload form */}
-        {!uploadSuccess && (
-          <form onSubmit={handleUpload} style={styles.form}>
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              onChange={(e) => setFile(e.target.files[0])}
-              style={styles.fileInput}
-            />
-            <button type="submit" style={styles.button} disabled={uploading}>
-              {uploading ? "Uploading..." : "Upload File"}
-            </button>
-          </form>
-        )}
+        <p style={{ color: "#444" }}>
+          Connected to kiosk: <b>{kioskId || "Not Connected"}</b>
+        </p>
 
-        {/* Options after upload */}
-        {uploadSuccess && (
+        <form onSubmit={handleUpload} style={styles.form}>
+          <input
+            type="file"
+            accept="application/pdf,image/*"
+            onChange={(e) => setFile(e.target.files[0])}
+            style={styles.fileInput}
+          />
+
+          {/* print settings */}
           <div style={styles.optionsBox}>
-            <h3>🖨️ Print Settings (Optional)</h3>
-
             <div style={styles.optionsRow}>
               <label>Color:</label>
               <select
@@ -103,12 +92,12 @@ export default function UserUpload({ currentUserId }) {
                 style={styles.numberInput}
               />
             </div>
-
-            <button style={styles.printButton} onClick={handlePrint}>
-              Print Now
-            </button>
           </div>
-        )}
+
+          <button type="submit" style={styles.button} disabled={uploading}>
+            {uploading ? "Uploading..." : "Upload & Send to Kiosk"}
+          </button>
+        </form>
 
         {msg && <p style={styles.message}>{msg}</p>}
       </div>
@@ -116,6 +105,7 @@ export default function UserUpload({ currentUserId }) {
   );
 }
 
+// same styles
 const styles = {
   container: {
     height: "100vh",
@@ -136,6 +126,7 @@ const styles = {
   title: { fontSize: "1.8rem", marginBottom: "20px", color: "#333" },
   form: { display: "flex", flexDirection: "column", gap: "15px" },
   fileInput: { fontSize: "1rem" },
+
   button: {
     backgroundColor: "#0078ff",
     color: "white",
@@ -145,8 +136,9 @@ const styles = {
     cursor: "pointer",
     fontSize: "1rem",
   },
+
   optionsBox: {
-    marginTop: "25px",
+    marginTop: "15px",
     padding: "15px",
     borderRadius: "15px",
     backgroundColor: "#f5f5f5",
@@ -170,15 +162,7 @@ const styles = {
     border: "1px solid #ccc",
     textAlign: "center",
   },
-  printButton: {
-    backgroundColor: "#4CAF50",
-    color: "white",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontSize: "1rem",
-  },
+
   message: {
     marginTop: "15px",
     fontWeight: "500",
