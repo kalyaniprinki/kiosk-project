@@ -89,7 +89,7 @@ function AppWrapper() {
       {/* ⭐ NEW ROUTES BELOW */}
 
       {/* User panel after QR scan */}
-      <Route path="panel" element={<UserPanel />} />
+      <Route path="/panel" element={<UserPanel />} />
 
       {/* Wallet */}
       <Route path="/user/wallet" element={<UserWallet />} />
