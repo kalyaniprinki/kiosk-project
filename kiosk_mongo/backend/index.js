@@ -185,13 +185,6 @@ app.post('/api/print', (req, res) => {
 
 // =============================
 // 🔹 Start Server
-// // =============================
-// const port = process.env.PORT || 4000;
-// server.listen(port, () => console.log(`🚀 Server running on port ${port}`));
-
-const PORT = process.env.PORT || 4000;
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
+// =============================
+const port = process.env.PORT || 4000;
+server.listen(port, () => console.log(`🚀 Server running on port ${port}`));
