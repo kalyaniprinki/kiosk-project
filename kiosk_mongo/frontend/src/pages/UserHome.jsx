@@ -24,7 +24,7 @@ export default function UserHome({ onLogout }) {
       // Case 2: If your QR only contains kioskId
       else {
         alert(`Scanned QR: ${scannedText}`);
-        navigate(`/user/panel?kioskId=${encodeURIComponent(scannedText)}`);
+        navigate(`/panel?kioskId=${encodeURIComponent(scannedText)}`);
       }
     }
   };
