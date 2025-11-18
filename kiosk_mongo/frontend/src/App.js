@@ -84,7 +84,7 @@ function AppWrapper() {
       <Route path="/kiosk/home" element={<KioskHome onLogout={handleLogout} />} />
 
       {/* Upload page (after QR scan) */}
-      <Route path="/connect" element={<UserPanel />} />
+      <Route path="/connect" element={<UserUpload />} />
 
       {/* ⭐ NEW ROUTES BELOW */}
 

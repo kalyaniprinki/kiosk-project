@@ -6,7 +6,7 @@ export default function UserPanel() {
 
   const params = new URLSearchParams(window.location.search);
   const kioskId = params.get("kioskId");
-  const userId = localStorage.getItem("USER_ID"); // assume login stored this
+  const userId = localStorage.getItem("USER_ID");
 
   return (
     <div style={styles.container}>
@@ -25,7 +25,7 @@ export default function UserPanel() {
           {/* Upload File */}
           <button
             style={styles.button}
-            onClick={() => navigate(`/upload?kiosk=${kioskId}`)}
+            onClick={() => navigate(`/connect?kioskId=${kioskId}`)}
           >
             📤 Upload New File
           </button>
@@ -62,39 +62,3 @@ export default function UserPanel() {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    height: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "linear-gradient(135deg, #3a7bd5, #00d2ff)",
-    fontFamily: "Segoe UI, Roboto, sans-serif",
-  },
-  card: {
-    background: "white",
-    width: "420px",
-    padding: "40px",
-    borderRadius: "18px",
-    textAlign: "center",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.2)",
-  },
-  title: { fontSize: "1.9rem", marginBottom: "10px", color: "#333" },
-  subtitle: { color: "#444", marginBottom: "25px" },
-  buttonList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "18px",
-    marginTop: "10px",
-  },
-  button: {
-    backgroundColor: "#007bff",
-    border: "none",
-    padding: "14px",
-    color: "white",
-    borderRadius: "10px",
-    fontSize: "1.1rem",
-    cursor: "pointer",
-  },
-};
