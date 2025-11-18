@@ -59,7 +59,7 @@ export default function KioskHome() {
         {!connected && (
           <>
             <QRCodeCanvas
-              value={`${frontendURL}/connect?kiosk=${kioskId}`}
+              value={`${frontendURL}/user/panel?kiosk=${kioskId}`}
               size={220}
               includeMargin={true}
             />
