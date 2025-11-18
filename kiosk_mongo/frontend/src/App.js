@@ -1,5 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+} from "react-router-dom";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -7,6 +12,11 @@ import Register from "./pages/Register";
 import UserHome from "./pages/UserHome";
 import KioskHome from "./pages/KioskHome";
 import UserUpload from "./pages/UserUpload";
+
+// ⭐ NEW PAGES
+import UserPanel from "./pages/UserPanel";   // Dashboard after QR scan
+import UserWallet from "./pages/UserWallet"; // Wallet page
+// import UserFiles from "./pages/UserFiles"; // if needed later
 
 function AppWrapper() {
   const navigate = useNavigate();
@@ -29,6 +39,7 @@ function AppWrapper() {
 
   return (
     <Routes>
+      {/* Home */}
       <Route
         path="/"
         element={
@@ -39,6 +50,7 @@ function AppWrapper() {
         }
       />
 
+      {/* User Login */}
       <Route
         path="/login/user"
         element={
@@ -50,6 +62,7 @@ function AppWrapper() {
         }
       />
 
+      {/* Kiosk Login */}
       <Route
         path="/login/kiosk"
         element={
@@ -61,13 +74,28 @@ function AppWrapper() {
         }
       />
 
+      {/* Register */}
       <Route path="/register" element={<Register onBack={() => navigate("/")} />} />
 
+      {/* User Home */}
       <Route path="/user/home" element={<UserHome onLogout={handleLogout} />} />
 
+      {/* Kiosk Home */}
       <Route path="/kiosk/home" element={<KioskHome onLogout={handleLogout} />} />
 
+      {/* Upload page (after QR scan) */}
       <Route path="/connect" element={<UserUpload />} />
+
+      {/* ⭐ NEW ROUTES BELOW */}
+
+      {/* User panel after QR scan */}
+      <Route path="/user/panel" element={<UserPanel />} />
+
+      {/* Wallet */}
+      <Route path="/user/wallet" element={<UserWallet />} />
+
+      {/* Files (if needed later) */}
+      {/* <Route path="/user/files" element={<UserFiles />} /> */}
     </Routes>
   );
 }
