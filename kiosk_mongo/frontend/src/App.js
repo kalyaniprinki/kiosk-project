@@ -6,25 +6,25 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import UserHome from "./pages/UserHome";
 import KioskHome from "./pages/KioskHome";
+import UserUpload from "./pages/UserUpload"; // new page for QR scan upload
 
-import UserPanel from "./pages/UserPanel";
-import UploadFile from "./pages/UploadFile";
-import PrintFile from "./pages/PrintFile";
-
+// 🔁 Wrapper to allow navigation inside components
 function AppWrapper() {
   const navigate = useNavigate();
   const [userType, setUserType] = useState(null);
 
+  // handle login success
   const handleLoginSuccess = (data, type) => {
     if (type === "user") {
       setUserType("user");
-      navigate("/user/panel");  // redirect to main user panel
+      navigate("/user/home");
     } else if (type === "kiosk") {
       setUserType("kiosk");
       navigate("/kiosk/home");
     }
   };
 
+  // handle logout
   const handleLogout = () => {
     setUserType(null);
     navigate("/");
@@ -32,6 +32,7 @@ function AppWrapper() {
 
   return (
     <Routes>
+      {/* 🏠 Home */}
       <Route
         path="/"
         element={
@@ -42,7 +43,7 @@ function AppWrapper() {
         }
       />
 
-      {/* User login */}
+      {/* 👤 User Login */}
       <Route
         path="/login/user"
         element={
@@ -54,7 +55,7 @@ function AppWrapper() {
         }
       />
 
-      {/* Kiosk login */}
+      {/* 🖨️ Kiosk Login */}
       <Route
         path="/login/kiosk"
         element={
@@ -66,22 +67,23 @@ function AppWrapper() {
         }
       />
 
+      {/* 🆕 Register */}
       <Route path="/register" element={<Register onBack={() => navigate("/")} />} />
 
-      {/* New clean user panel */}
-      <Route path="/user/panel" element={<UserPanel onLogout={handleLogout} />} />
+      {/* 👤 User Home */}
+      <Route
+        path="/user/home"
+        element={<UserHome onLogout={handleLogout} />}
+      />
 
-      {/* Upload file page */}
-      <Route path="/user/upload" element={<UploadFile />} />
+      {/* 🖨️ Kiosk Home */}
+      <Route
+        path="/kiosk/home"
+        element={<KioskHome onLogout={handleLogout} />}
+      />
 
-      {/* Print file page */}
-      <Route path="/user/print" element={<PrintFile />} />
-
-      {/* Kiosk dashboard */}
-      <Route path="/kiosk/home" element={<KioskHome onLogout={handleLogout} />} />
-
-      {/* Old QR connect route (optional) */}
-      <Route path="/connect" element={<UploadFile />} />
+      {/* 🔗 User Upload (after scanning QR) */}
+      <Route path="/connect" element={<UserUpload />} />
     </Routes>
   );
 }
