@@ -4,8 +4,8 @@ import { io } from "socket.io-client";
 
 export default function KioskHome() {
   const kioskId = "KIOSK12345"; // Example ID (unique per kiosk)
-  const frontendURL = process.env.REACT_APP_FRONTEND_URL || "http://localhost:3000";
-  const socketURL = process.env.REACT_APP_SOCKET_URL || "http://localhost:4000";
+  const frontendURL = process.env.REACT_APP_FRONTEND_URL ;
+  const socketURL = process.env.REACT_APP_SOCKET_URL ;
 
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState("Waiting for user to scan QR...");
